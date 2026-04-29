@@ -116,9 +116,29 @@ let PermissionCtrl = {
             }
 
             let updatedPermission
-
+            if (user.role === 'admin') {
+                updatedPermission = await Permission.findByIdAndUpdate(
+                    id, 
+                    {
+                        supervisor: user._id,
+                        supervisor_comment: comment,
+                        status: status // Assistant has reviewed, waiting for supervisor
+                    },
+                    { new: true } // Return updated document
+                )
+            } else if (user.role === 'supervisor') {
+                updatedPermission = await Permission.findByIdAndUpdate(
+                    id, 
+                    {
+                        supervisor: user._id,
+                        supervisor_comment: comment,
+                        status: status // Assistant has reviewed, waiting for supervisor
+                    },
+                    { new: true } // Return updated document
+                )
+            }
             // Handle assistant review (pending -> under_review)
-            if (permission.status === 'pending' && user.role === 'assistant') {
+            else if (permission.status === 'pending' && user.role === 'assistant') {
                 updatedPermission = await Permission.findByIdAndUpdate(
                     id, 
                     {
@@ -157,6 +177,57 @@ let PermissionCtrl = {
             }
 
             // Populate user data for response
+            await updatedPermission.populate(['requester', 'supervisor', 'assistant'])
+
+            return res.status(200).json({ success: true, data: updatedPermission })
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message })
+        }
+    },
+
+    acceptedByAdmin: async (req, res) => {
+        try {
+            let { id } = req.params
+            let { user_id, comment, status } = req.body
+
+            // Validate inputs
+            if (!user_id) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: "User ID is required" 
+                })
+            }
+
+            // Find permission and user
+            let permission = await Permission.findById(id)
+            let user = await User.findById({ _id: user_id })
+
+            if (!permission) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: "Permission request not found" 
+                })
+            }
+
+            if (!user) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: "User not found" 
+                })
+            }
+
+            let updatedPermission
+
+            // Handle assistant review (pending -> under_review)
+            if (user.role === 'admin') {
+                updatedPermission = await Permission.findByIdAndUpdate(
+                    id, 
+                    {
+                        status: status // Assistant has reviewed, waiting for supervisor
+                    },
+                    { new: true } // Return updated document
+                )
+            }
             await updatedPermission.populate(['requester', 'supervisor', 'assistant'])
 
             return res.status(200).json({ success: true, data: updatedPermission })

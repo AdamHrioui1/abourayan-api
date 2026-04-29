@@ -21,8 +21,8 @@ const UserCtrl = {
             })
 
             await newUser.save()
-            const accessToken = createAccessToken({ id: newUser._id })
-            const refreshtoken = createRefreshToken({ id: newUser._id })
+            const accessToken = createAccessToken({ id: newUser._id, role: newUser.role })
+            const refreshtoken = createRefreshToken({ id: newUser._id, role: newUser.role })
 
             res.cookie('refreshtoken', refreshtoken, {
                 httpOnly: true,
