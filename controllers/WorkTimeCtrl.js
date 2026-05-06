@@ -1,5 +1,8 @@
 // controllers/WorkTimeCtrl.js
 const WorkTime = require("../models/WorkTimeModel");
+const moment = require('moment-timezone');
+
+const SA_TIMEZONE = 'Asia/Riyadh';
 
 let WorkTimeCtrl = {
     // Get current work settings
@@ -104,20 +107,41 @@ let WorkTimeCtrl = {
     },
     
     // Check if current time is working time
+    
     checkWorkingTime: async (req, res) => {
         try {
-            const isWorking = await WorkTime.isWorkingTime(new Date());
+            const isWorking = await WorkTime.isWorkingTime();
             const nextWorkingTime = !isWorking ? await WorkTime.getNextWorkingTime() : null;
+            
+            // Get current Saudi time for reference
+            const currentSaudiTime = moment().tz(SA_TIMEZONE);
             
             return res.status(200).json({ 
                 success: true, 
                 isWorking,
-                nextWorkingTime: nextWorkingTime ? nextWorkingTime.toISOString() : null
+                currentSaudiTime: currentSaudiTime.format('YYYY-MM-DD HH:mm:ss'),
+                timezone: 'Asia/Riyadh (UTC+3)',
+                nextWorkingTime: nextWorkingTime ? moment(nextWorkingTime).tz(SA_TIMEZONE).toISOString() : null
             });
         } catch (error) {
             return res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    // checkWorkingTime: async (req, res) => {
+    //     try {
+    //         const isWorking = await WorkTime.isWorkingTime(new Date());
+    //         const nextWorkingTime = !isWorking ? await WorkTime.getNextWorkingTime() : null;
+            
+    //         return res.status(200).json({ 
+    //             success: true, 
+    //             isWorking,
+    //             nextWorkingTime: nextWorkingTime ? nextWorkingTime.toISOString() : null
+    //         });
+    //     } catch (error) {
+    //         return res.status(500).json({ success: false, message: error.message });
+    //     }
+    // }
 };
 
 module.exports = WorkTimeCtrl;
