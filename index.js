@@ -6,9 +6,12 @@ const connection = require('./database/connection');
 const workTimeMiddleware = require('./middleware/workTimeMiddleware'); // Add this
 
 const app = express()
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }));
-app.use(cors())
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+}))
 app.use(cookieParser())
 
 // Apply workTimeMiddleware to all API routes
@@ -18,7 +21,8 @@ app.use('/api/user', require('./routes/UserRoutes'))
 app.use('/api/request', require('./routes/RequestRoutes'))
 app.use('/api/permission', require('./routes/PermissionRoutes'))
 app.use('/api/material', require('./routes/MaterialsRoutes'))
-app.use('/api/worktime', require('./routes/WorkTimeRoutes')) // Add this line
+app.use('/api/worktime', require('./routes/WorkTimeRoutes'))
+app.use('/api/weeklytop', require('./routes/WeeklyTopRoutes'))
 
 app.get('/', (req, res) => {
     try {

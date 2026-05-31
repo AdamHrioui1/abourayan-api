@@ -1,6 +1,7 @@
 const User = require("../models/UserModel")
 const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
+const { uploadAvatar } = require('../utils/cloudinary');
 
 const UserCtrl = {
     register: async (req, res) => {
@@ -46,8 +47,8 @@ const UserCtrl = {
             const isMatch = await bcrypt.compare(password, user.password)
             if(!isMatch) return res.status(400).json({ success: false, message: 'Incorrect Password!!' })
 
-            const accesstoken = createAccessToken({ id: user._id })
-            const refreshtoken = createRefreshToken({ id: user._id })
+            const accesstoken = createAccessToken({ id: user._id, role: user.role })
+            const refreshtoken = createRefreshToken({ id: user._id, role: user.role })
 
             res.cookie('refreshtoken', refreshtoken, {
                 httpOnly: true,
@@ -66,7 +67,7 @@ const UserCtrl = {
             jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
                 if(err) return res.status(400).json({ success: false, message: 'Invalid Authentication!'})
 
-                const accesstoken = createAccessToken({ id: user.id })
+                const accesstoken = createAccessToken({ id: user.id, role: user.role })
                 return res.status(200).json({ success: true, accesstoken })
             })
         } catch (err) {
@@ -206,6 +207,45 @@ const UserCtrl = {
             return res.status(500).json({ success: false, message: err.message })
         }
     },
+    // PUT /api/user/profile — user updates their own profile
+    updateProfile: async (req, res) => {
+        try {
+            const id = req.user.id
+            const { fullname, email, password, avatar } = req.body
+
+            const updateData = {}
+
+            if (fullname) {
+                if (fullname.length < 3) return res.status(400).json({ success: false, message: 'الاسم يجب أن يكون 3 أحرف على الأقل' })
+                updateData.fullname = fullname
+            }
+            if (email !== undefined) updateData.email = email
+
+            // If a new base64 image was sent, upload to Cloudinary
+            if (avatar !== undefined) {
+                if (avatar === null) {
+                    updateData.avatar = null
+                } else if (avatar.startsWith('data:')) {
+                    // It's a new base64 upload — send to Cloudinary
+                    const url = await uploadAvatar(avatar, `user_${id}`)
+                    updateData.avatar = url
+                }
+                // If it's already a https:// URL, it hasn't changed — skip
+            }
+
+            if (password) {
+                if (password.length < 6) return res.status(400).json({ success: false, message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' })
+                const salt = 10
+                updateData.password = await bcrypt.hash(password, salt)
+            }
+
+            const updated = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password')
+            return res.status(200).json({ success: true, data: updated })
+        } catch (err) {
+            return res.status(500).json({ success: false, message: err.message })
+        }
+    },
+
     edit_user: async (req, res) => {
         try {
             let { id } = req.params

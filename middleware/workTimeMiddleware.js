@@ -1,36 +1,46 @@
-const WorkTime = require("../models/WorkTimeModel");
+const WorkTime = require('../models/WorkTimeModel');
+const jwt = require('jsonwebtoken');
 
 const workTimeMiddleware = async (req, res, next) => {
-    // Skip for login/register routes
-    if (req.path === '/user/login' || req.path === '/user/register' || req.path === '/user/refreshtoken') {
+    // Always allow auth and worktime routes through
+    if (
+        req.path === '/user/login' ||
+        req.path === '/user/register' ||
+        req.path === '/user/refreshtoken' ||
+        req.path === '/worktime/status' ||
+        req.path === '/worktime/toggle' ||
+        req.path === '/weeklytop'
+    ) {
         return next();
     }
-    
-    // Skip if no user (authentication will handle this)
-    if (!req.user) {
-        return next();
-    }
-    
-    // Admins and supervisors always have access
-    if (req.user.role === 'admin' || req.user.role === 'supervisor') {
-        return next();
-    }
-    
+
     try {
-        const isWorking = await WorkTime.isWorkingTime(new Date());
-        
-        if (!isWorking) {
-            const nextWorkingTime = await WorkTime.getNextWorkingTime();
-            return res.status(403).json({ 
-                success: false, 
-                message: "Access denied. You can only access the system during working hours.",
-                nextWorkingTime: nextWorkingTime
-            });
+        const settings = await WorkTime.findOne();
+
+        // System is open — let everyone through
+        if (!settings || settings.isOpen) {
+            return next();
         }
-        
-        next();
+
+        // System is closed — decode token and allow admins through on ALL routes
+        try {
+            const token = req.header('Authorization');
+            if (token) {
+                const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+                if (decoded.role === 'admin') {
+                    return next();
+                }
+            }
+        } catch (e) {
+            // Invalid/missing token — fall through to block
+        }
+
+        return res.status(403).json({
+            success: false,
+            message: 'النظام مغلق حالياً. يرجى المحاولة لاحقاً.',
+            systemClosed: true,
+        });
     } catch (error) {
-        console.error('Work time check error:', error);
         next();
     }
 };

@@ -45,6 +45,29 @@ const RequestSchema = new mongoose.Schema({
         ref: 'User',
         default: null,
     },
+    comments: [{
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        },
+        role: {
+            type: String,
+            required: true,
+        },
+        text: {
+            type: String,
+            required: true,
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now,
+        },
+        updatedAt: {
+            type: Date,
+            default: null,
+        },
+    }],
 }, {
     timestamps: true
 })

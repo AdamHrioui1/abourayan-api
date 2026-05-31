@@ -13,6 +13,9 @@ router.get('/user/:user_id', auth, RequestCtrl.getUserRequests)
 router.get('/:id', auth, RequestCtrl.getById)
 router.put('/:request_id', auth, RequestCtrl.edit)
 router.put('/admin-supervisor/:request_id', auth, RequestCtrl.editRequestByAdminOrSupervisor)
+router.post('/:id/comment', auth, RequestCtrl.addComment)
+router.put('/:id/comment/:commentId', auth, RequestCtrl.updateComment)
+router.delete('/:id/comment/:commentId', auth, RequestCtrl.deleteComment)
 router.delete('/:id', auth, RequestCtrl.delete)
 
 module.exports = router

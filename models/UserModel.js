@@ -28,6 +28,10 @@ const UserSchema = new mongoose.Schema({
         type: String,
         default: 'waiting'
     },
+    avatar: {
+        type: String,  // base64 data URL
+        default: null
+    },
 }, {
     timestamps: true
 })

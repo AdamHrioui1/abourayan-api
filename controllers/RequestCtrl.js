@@ -285,14 +285,15 @@ let RequestCtrl = {
         }
     },
     
-    getById: async (req, res) => { // Added this method
+    getById: async (req, res) => {
         try {
             let { id } = req.params;
             let request = await Requests.findById(id)
                 .populate('requester', 'username fullname email role')
                 .populate('supervisor', 'username fullname email role')
                 .populate('assistant', 'username fullname email role')
-                .populate('technician', 'username fullname email role');
+                .populate('technician', 'username fullname email role')
+                .populate('comments.user', 'username fullname email role');
             
             if (!request) {
                 return res.status(404).json({ success: false, message: "Request not found" });
@@ -578,6 +579,112 @@ let RequestCtrl = {
             return res.status(200).json({ success: true, data: updatedRequest });
         } catch (error) {
             console.error('Admin/Supervisor edit error:', error);
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    addComment: async (req, res) => {
+        try {
+            let { id } = req.params;
+            let { text, user_id } = req.body;
+
+            if (!text || !text.trim()) {
+                return res.status(400).json({ success: false, message: "Comment text is required" });
+            }
+
+            let user = await User.findById(user_id);
+            if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+            const allowedRoles = ['admin', 'supervisor', 'assistant', 'technician'];
+            if (!allowedRoles.includes(user.role)) {
+                return res.status(403).json({ success: false, message: "Role not allowed to comment" });
+            }
+
+            let request = await Requests.findById(id);
+            if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+
+            request.comments.push({ user: user_id, role: user.role, text: text.trim() });
+            await request.save();
+
+            await request.populate([
+                { path: 'requester', select: 'username fullname email role' },
+                { path: 'supervisor', select: 'username fullname email role' },
+                { path: 'assistant', select: 'username fullname email role' },
+                { path: 'technician', select: 'username fullname email role' },
+                { path: 'comments.user', select: 'username fullname email role' },
+            ]);
+
+            return res.status(201).json({ success: true, data: request });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    updateComment: async (req, res) => {
+        try {
+            let { id, commentId } = req.params;
+            let { text, user_id } = req.body;
+
+            if (!text || !text.trim()) {
+                return res.status(400).json({ success: false, message: "Comment text is required" });
+            }
+
+            let request = await Requests.findById(id);
+            if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+
+            let comment = request.comments.id(commentId);
+            if (!comment) return res.status(404).json({ success: false, message: "Comment not found" });
+
+            if (comment.user.toString() !== user_id) {
+                return res.status(403).json({ success: false, message: "You can only edit your own comments" });
+            }
+
+            comment.text = text.trim();
+            comment.updatedAt = new Date();
+            await request.save();
+
+            await request.populate([
+                { path: 'requester', select: 'username fullname email role' },
+                { path: 'supervisor', select: 'username fullname email role' },
+                { path: 'assistant', select: 'username fullname email role' },
+                { path: 'technician', select: 'username fullname email role' },
+                { path: 'comments.user', select: 'username fullname email role' },
+            ]);
+
+            return res.status(200).json({ success: true, data: request });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    deleteComment: async (req, res) => {
+        try {
+            let { id, commentId } = req.params;
+            let { user_id } = req.body;
+
+            let request = await Requests.findById(id);
+            if (!request) return res.status(404).json({ success: false, message: "Request not found" });
+
+            let comment = request.comments.id(commentId);
+            if (!comment) return res.status(404).json({ success: false, message: "Comment not found" });
+
+            if (comment.user.toString() !== user_id) {
+                return res.status(403).json({ success: false, message: "You can only delete your own comments" });
+            }
+
+            request.comments.pull(commentId);
+            await request.save();
+
+            await request.populate([
+                { path: 'requester', select: 'username fullname email role' },
+                { path: 'supervisor', select: 'username fullname email role' },
+                { path: 'assistant', select: 'username fullname email role' },
+                { path: 'technician', select: 'username fullname email role' },
+                { path: 'comments.user', select: 'username fullname email role' },
+            ]);
+
+            return res.status(200).json({ success: true, data: request });
+        } catch (error) {
             return res.status(500).json({ success: false, message: error.message });
         }
     },
